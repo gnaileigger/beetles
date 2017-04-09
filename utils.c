@@ -1,12 +1,11 @@
 #include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <time.h>
 
+extern unsigned int random_uint32(void);
 
 //generate a random number (freq: at least one second)
-unsigned int gen_rand()
+unsigned int gen_rand(void)
 {
+#if 0
   unsigned int rn;
 
   srand((unsigned)time(NULL));
@@ -14,4 +13,7 @@ unsigned int gen_rand()
 
   //printf("rn=%d\n",rn);
   return rn;
+#endif
+
+  return random_uint32();
 }

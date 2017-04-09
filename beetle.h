@@ -1,7 +1,10 @@
+#ifndef BEETLE_H
+#define BEETLE_H
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
+
 
 
 char pai[] = "1415926535897932384626433832795028841971693993\
@@ -57,11 +60,27 @@ enum speed {
 */
 typedef uint speed;
 
-typedef struct _ {
+typedef struct _beetle {
   position pos;
   direction dir;
   speed spd;
   uint id;
   uint color;
+  int sideward;
 } beetle;
 
+
+//check points settings
+#define NUM_CHKPTS 20
+#define NUM_MAX_POSSIBLE_DIR 2
+
+typedef struct _checkpoint {
+  int valid;
+  position pos;
+  uint dir_cnt; //how many possible dirs this checkpoint has
+  direction possible_dirs[NUM_MAX_POSSIBLE_DIR];  //what are they
+}checkpoint;
+
+extern checkpoint g_checkpoints[NUM_CHKPTS];
+
+#endif //BEETLE_H

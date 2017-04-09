@@ -49,7 +49,7 @@ typedef struct _map_position{
 
 map_position g_maps[NUM_MAX_POS];
 
-void map_init()
+void map_init(void)
 {
   int x,y;
   int idx = 0;
@@ -106,16 +106,6 @@ void map_init()
 }
 
 
-//check points settings
-#define NUM_CHKPTS 20
-#define NUM_MAX_POSSIBLE_DIR 2
-
-typedef struct _checkpoint {
-  int valid;
-  position pos;
-  uint dir_cnt; //how many possible dirs this checkpoint has
-  direction possible_dirs[NUM_MAX_POSSIBLE_DIR];  //what are they
-}checkpoint;
 
 checkpoint g_checkpoints[NUM_CHKPTS];
 /*
@@ -137,8 +127,10 @@ y=100  C>>>>>>>>>>>>>>>CC>>>>>>>>>>>>>>>>>>C   ZS Road
          (0,0)                               CC               C=checkpoint
                                        x=150,151                                      x=300                                         
 */
-void chkpt_init()
+void chkpt_init(void)
 {
+
+/*
   g_checkpoints[NUM_CHKPTS] = {
   //v     pos    cnt   d0    d1
     (0, (0, 100), 1, ((1, 0), (0, 0))),
@@ -146,16 +138,18 @@ void chkpt_init()
     (0, (150, 100), 2, ((1, 0), (0, -1))),
     (0, (150, 101), 2, ((0, -1), (-1, 0))),
   };
+*/
 }
 
 
-int main()
+int ctrl_center_init(void)
 {
   map_init();
   chkpt_init();
 
   //...
   
+  return 0;
 
 
 }

@@ -6,20 +6,20 @@
 */
 
 #include "beetle.h"
+#include "utils.h"
 
-uint beetle_init(beetle* b)
+uint beetle_data_init(beetle* b)
 {
   //pos
   //dir
   //speed
-
+  printf("%x\n", (int)b);
   //mqtt request
 
   //mqtt response
+  return 0;
+
 }
-
-
-extern uint gen_rand();
 
 int beetle_compare_position(position a, position b)
 {
@@ -58,24 +58,25 @@ void beetle_move(beetle* b)
 
 uint g_sensor_distance;
 
-uint beetle_sensor_update()
+uint beetle_sensor_update(void)
 {
   //semTake(sem_mqtt);
   return g_sensor_distance;
   
 }
 
-void beetle_report()
+void beetle_report(beetle b)
 {
   //mqtt send: pos(x,y), id
+  printf("%x\n", b.id);
 }
 
-int main()
+int beetle_init(void)
 {
   beetle b;
   uint distance;
   
-  if(beetle_init(&b) != 0)
+  if(beetle_data_init(&b) != 0)
   {
     printf("init error\n");
     return -1;
