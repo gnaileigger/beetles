@@ -1,3 +1,9 @@
+/*
+ * 
+ * @author      r.liang <xxx@xxx.xx>
+ *
+*/
+
 #include "beetle.h"
 #include "utils.h"
 
@@ -68,6 +74,7 @@ void beetle_report(beetle * c)
 {
   printf("%3d,%3d\n", c->pos.x, c->pos.y);
 }
+
 
 /*
   assume we have distance sensors

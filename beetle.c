@@ -1,7 +1,6 @@
 /*
  * 
- * author: r.liang
- * email: xxxx@xxx.com 
+ * @author      r.liang <xxx@xxx.xx>
  *
 */
 
@@ -20,6 +19,7 @@ uint beetle_data_init(beetle* b)
   return 0;
 
 }
+
 
 int beetle_compare_position(position a, position b)
 {

@@ -50,10 +50,11 @@ int main(void)
     gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
 #endif
 
-    (void) puts("Welcome to RIOT!");
+    (void) puts("Welcome to RIOT?!");
 
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     return 0;
 }
+

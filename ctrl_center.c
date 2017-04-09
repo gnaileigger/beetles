@@ -1,7 +1,6 @@
 /*
  * 
- * author: r.liang
- * email: xxxx@xxx.com 
+ * @author      r.liang <xxx@xxx.xx>
  *
 */
 
@@ -140,6 +139,7 @@ void chkpt_init(void)
   };
 */
 }
+
 
 
 int ctrl_center_init(void)

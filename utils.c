@@ -1,3 +1,9 @@
+/*
+ * 
+ * @author      r.liang <xxx@xxx.xx>
+ *
+*/
+
 #include <stdio.h>
 
 extern unsigned int random_uint32(void);

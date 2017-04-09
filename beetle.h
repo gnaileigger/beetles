@@ -1,11 +1,15 @@
+/*
+ * 
+ * @author      r.liang <xxx@xxx.xx>
+ *
+*/
+
 #ifndef BEETLE_H
 #define BEETLE_H
 
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
-
 
 char pai[] = "1415926535897932384626433832795028841971693993\
 751058209794459230781640628620899862803482534211706798214808\
