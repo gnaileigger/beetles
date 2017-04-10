@@ -31,6 +31,17 @@ QUIET ?= 1
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
+
+# Include packages that pull up and auto-init the link layer.
+# NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
+USEMODULE += gnrc_netdev_default
+USEMODULE += auto_init_gnrc_netif
+# Specify the mandatory networking modules for IPv6 and UDP
+USEMODULE += gnrc_sock_udp
+USEMODULE += gnrc_ipv6_default
+# Include MQTT-SN
+USEMODULE += emcute
+
 # include and auto-initialize all available sensors
 USEMODULE += saul_default
 

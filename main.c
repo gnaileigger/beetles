@@ -29,6 +29,8 @@
 #include "shell.h"
 #include "shell_commands.h"
 
+#include "beetle.h"
+
 #if FEATURE_PERIPH_RTC
 #include "periph/rtc.h"
 #endif
@@ -37,6 +39,12 @@
 #include "net/gnrc/pktdump.h"
 #include "net/gnrc.h"
 #endif
+
+static const shell_command_t shell_commands[] = {
+    { "power_on", "Power on the beetle", beetle_start },
+    { "power_off", "Power off the beetle", beetle_stop },
+    { NULL, NULL, NULL }
+};
 
 int main(void)
 {
@@ -50,10 +58,12 @@ int main(void)
     gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
 #endif
 
-    (void) puts("Welcome to RIOT?!");
+    (void) puts("beetle running...");
+    //beetle_start(0,0);
 
+    //never reach here...
     char line_buf[SHELL_DEFAULT_BUFSIZE];
-    shell_run(NULL, line_buf, SHELL_DEFAULT_BUFSIZE);
+    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     return 0;
 }

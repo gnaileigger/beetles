@@ -4,7 +4,7 @@
  *
 */
 
-#include "beetle.h"
+#include "../beetle.h"
 
 
 
@@ -106,7 +106,7 @@ void map_init(void)
 
 
 
-checkpoint g_checkpoints[NUM_CHKPTS];
+checkpoint cc_checkpoints[NUM_CHKPTS];
 /*
                                          y pos:
 y=200                                     CC                                    (300,200)
@@ -130,7 +130,7 @@ void chkpt_init(void)
 {
 
 /*
-  g_checkpoints[NUM_CHKPTS] = {
+  cc_checkpoints[NUM_CHKPTS] = {
   //v     pos    cnt   d0    d1
     (0, (0, 100), 1, ((1, 0), (0, 0))),
     (0, (0, 101), 1, ((0, -1), (0, 0))),
@@ -142,14 +142,23 @@ void chkpt_init(void)
 
 
 
-int ctrl_center_init(void)
+int main(int argc, void* argv)
 {
   map_init();
   chkpt_init();
 
-  //...
+  printf("ctrl_center running with %d beeltes...\n", n);
+
+  //waiting for beelte init request
+  //reply with: pos, dir, id, color, speed, etc.
+  //reply with: checkpoints - let beetles control their ways
+
+  //kick off...
+  //  unblock all beetle "sensor"
+
+  //waiting for beelte pos update
+  //reply with: 
   
   return 0;
-
 
 }

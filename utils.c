@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 
-extern unsigned int random_uint32(void);
+//extern unsigned int random_uint32(void);
 
 //generate a random number (freq: at least one second)
 unsigned int gen_rand(void)
@@ -21,5 +21,6 @@ unsigned int gen_rand(void)
   return rn;
 #endif
 
-  return random_uint32();
+  //return random_uint32();
+  return 0;
 }
