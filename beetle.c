@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sema.h>
 
 #include "shell.h"
 #include "msg.h"
@@ -25,17 +26,26 @@
 #define NUMOFSUBS           (16U)
 #define TOPIC_MAXLEN        (64U)
 
+#define TOPIC_TEST "test/test"
 #define BEETLE_SUB_TOPIC "center/*"
-#define BEETLE_PUB_TOPIC "beetle/*"
+#define BEETLE_PUB_TOPIC_INITREQ "beetle/initreq"
+
+//locals
 
 static char stack[THREAD_STACKSIZE_DEFAULT];
 static msg_t queue[8];
-
 static emcute_sub_t subscriptions[NUMOFSUBS];
 static char topics[NUMOFSUBS][TOPIC_MAXLEN];
 
-//CHK PTS
 static checkpoint checkpoints[NUM_CHKPTS];
+
+//globals
+
+sema_t sem_mqtt;
+
+/*
+ * functions
+ */
 
 static uint beetle_init_request(beetle* b)
 {
@@ -102,6 +112,10 @@ static void beetle_report(beetle b)
   (void)b;
 }
 
+/* 
+ * MQTT APIs
+ */
+
 static void *emcute_thread(void *arg)
 {
     (void)arg;
@@ -129,19 +143,22 @@ static void mqtt_connect(void)
 
 static void mqtt_on_message(const emcute_topic_t *topic, void *data, size_t len)
 {
-    char *in = (char *)data;
+  char *in = (char *)data;
 
-    printf("### got publication for topic '%s' [%i] ###\n",
-           topic->name, (int)topic->id);
-    for (size_t i = 0; i < len; i++) {
-        printf("%c", in[i]);
-    }
-    puts("");
+  printf("### got publication for topic '%s' [%i] ###\n",
+         topic->name, (int)topic->id);
+  for (size_t i = 0; i < len; i++) {
+      printf("%c", in[i]);
+  }
+  puts("sleep 1s...");
+  sleep(1);
+  sema_post(&sem_mqtt);
+
 }
 
 
 //sub hello/world
-static void mqtt_subscribe(void)
+static void mqtt_subscribe(char* topic)
 {
   /* find empty subscription slot */
   unsigned i = 0;
@@ -152,15 +169,26 @@ static void mqtt_subscribe(void)
   }
 
   subscriptions[i].cb = mqtt_on_message;
-  strcpy(topics[i], SUB_TOPIC);
+  strcpy(topics[i], topic);
   subscriptions[i].topic.name = topics[i];
   if (emcute_sub(&subscriptions[i], EMCUTE_QOS_0) != EMCUTE_OK) {
-      printf("error: unable to subscribe to %s\n", SUB_TOPIC);
+      printf("error: unable to subscribe to %s\n", topic);
       return;
   }
 
-  printf("Now subscribed to %s\n", SUB_TOPIC);
+  printf("Now subscribed to %s\n", topic);
 
+}
+
+//pub hello/world "it is good!"
+void mqtt_publish(char* topic, void* data, uint len)
+{
+  emcute_topic_t t;
+  t.name = topic;
+  emcute_reg(&t);
+  emcute_pub(&t, data, len, EMCUTE_QOS_0);
+  printf("Published %i bytes to topic '%s [%i]'\n",
+            (int)len, t.name, t.id);
 }
 
 int beetle_start(int argc, char** argv)
@@ -201,9 +229,16 @@ int beetle_start(int argc, char** argv)
   thread_create(stack, sizeof(stack), EMCUTE_PRIO, 0,
                 emcute_thread, NULL, "emcute");
 
+  /* semaphore */
+  sema_create(&sem_mqtt, 0);
+
   //mqtt
   mqtt_connect();
-  mqtt_subscribe();
+  mqtt_subscribe(TOPIC_TEST);
+
+  beetle_init_req req;
+  req.id = 1;
+  mqtt_publish("beetle/init_req_0001", &req, sizeof(beetle_init_req));
 
   if(beetle_init_request(&b) != 0)
   {
@@ -213,6 +248,8 @@ int beetle_start(int argc, char** argv)
 
   //main loop
   while(1){
+    sema_wait(&sem_mqtt);
+    puts("sem took!");
     distance = beetle_sensor_update();
 
     if (distance > SAFE_DISTANCE){

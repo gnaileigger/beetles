@@ -6,7 +6,21 @@
 
 #include "../beetle.h"
 
+#include <pthread.h>
+#include <semaphore.h>
 
+sem_t sem_init_req;
+sem_t sem_report;
+struct mosquitto* g_mosq;
+
+struct mosquitto_message{
+	int mid;
+	char *topic;
+	void *payload;
+	int payloadlen;
+	int qos;
+	int retain;
+};
 
 /* -------------------- The MAP --------------------
 
@@ -140,25 +154,193 @@ void chkpt_init(void)
 */
 }
 
+extern int mosquitto_lib_init();
+struct mosquitto* client;
+
+
+static void on_connect(struct mosquitto *mosq, void *obj, int result)
+{
+  if (mosquitto_subscribe(g_mosq, NULL, "beetle/init_req_0001", 0) != 0) 
+    printf("error mosquitto_subscribe\n");
+}
+
+static void on_publish(struct mosquitto *mosq, void *userdata, int mid)
+{
+  //printf("2. on_publish is called...\n");
+}
+
+static void on_subscribe(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
+{
+   //printf("4. on_subscribe\n");
+}
+
+/*
+   beetle              ctrl_center
+  =================================
+
+   init_req_ID -->       
+               <--     init_rsp_ID
+     (do this for all beetles)
+
+                       wait: n sec
+               <--     sensor_update_ID
+   report_ID   -->       
+     (do this for all beetles)
+
+                       map update
+                       loop "wait"   
+
+
+beetle
+  sub: center/init_rsp_{id}, center/sensor_{id}
+  pub: beetle/init_req_{id}, beetle/report_{id}
+
+center
+  sub: beetle/*
+  pub: center/init_rsp_{all}, center/sensor_{all}
+*/
+
+#define NUM_OF_BEETLE 10
+#define MOSQ_ERR_SUCCESS 0
+
+
+int cnt_init_req;
+int cnt_report;
+
+void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_message* msg)
+{
+  int i;
+
+  beetle_init_req* p_data = (beetle_init_req *)msg->payload;
+
+  printf("center: I got this: %d\n", p_data->id);
+
+/*
+  //beetle init request
+  if (strncmp(topic, BEETLE_PUB_INIT_REQ_, sizeof(BEETLE_PUB_INIT_REQ_)) == MOSQ_ERR_SUCCESS)
+  {
+    mosquitto_publish(g_mosq, NULL, );
+
+    cnt_init_req++;
+    if (cnt_init_req == NUM_OF_BEETLE)
+      sem_post(&sem_init_req);
+  }
+
+  if (topic == "beetle/report_ID")
+  {
+    //publish();
+
+    cnt_report++;
+    if (cnt_report == NUM_OF_BEETLE)
+      sem_post(&sem_report);
+  }  
+*/
+
+}
+
+
+
+int mqtt_listener()
+{
+
+  mosquitto_lib_init();
+
+  if(!(g_mosq = mosquitto_new("ctrl_center", 1, NULL))) {
+    printf("[master]mosquitto_new failed!!!\n");
+    goto ERROR;
+  }
+
+  mosquitto_connect_callback_set(g_mosq, on_connect);
+  mosquitto_publish_callback_set(g_mosq, on_publish);
+  mosquitto_message_callback_set(g_mosq, on_message);
+  mosquitto_subscribe_callback_set(g_mosq, on_subscribe);
+
+  if(mosquitto_connect(g_mosq, "localhost", 1886, 60) != MOSQ_ERR_SUCCESS) {
+    printf("[master]Failed to connect to broker!!!\n");
+    goto ERROR;
+  }
+
+  printf("[master] mosquitto_loop_forever...\n");
+  mosquitto_loop_forever(g_mosq, -1, 1);
+
+  printf("[master] mosquitto_disconnect...\n");
+  mosquitto_disconnect(g_mosq);
+  mosquitto_destroy(g_mosq);
+  mosquitto_lib_cleanup();
+
+  printf("[master] is exiting.\n");
+  return 0;
+
+ERROR:
+  printf("[master] Error occured, exiting...\n");
+  if(g_mosq){
+     mosquitto_disconnect(g_mosq);
+     mosquitto_destroy(g_mosq);
+     g_mosq = 0;
+     mosquitto_lib_cleanup();
+  }
+  return -1;
+}
 
 
 int main(int argc, void* argv)
 {
+  int bcnt = NUM_OF_BEETLE;
+  int cnt = 0;
+  char topic[32];
+  int i;
+
+  sem_init(&sem_init_req, 0, 0);
+  sem_init(&sem_report, 0, 0);
+
   map_init();
   chkpt_init();
-
-  printf("ctrl_center running with %d beeltes...\n", n);
-
-  //waiting for beelte init request
-  //reply with: pos, dir, id, color, speed, etc.
-  //reply with: checkpoints - let beetles control their ways
-
-  //kick off...
-  //  unblock all beetle "sensor"
-
-  //waiting for beelte pos update
-  //reply with: 
   
-  return 0;
+  //thread to receive mqtt msg
+  pthread_t mqtt_thread;
+  pthread_create(&mqtt_thread, NULL, mqtt_listener, NULL);
 
+  //this sem will be posted when all init_req been handled
+  sem_wait(&sem_init_req); 
+
+  while(1)
+  {
+    usleep(1000*1000); //1s
+
+    // simulate sensor data and send to eacho beetle
+    for(i = 0; i < NUM_OF_BEETLE; i++)
+    {
+      sprintf(topic, "center/sensor_%04d", i);
+      printf("topic: %s", topic);
+      //mosquitto_publish(g_mosq, NULL, topic, 16, "helloworld", 0, NULL);
+    }
+
+    //@beetle:
+    //beetle rx
+    //beetle action
+    //beetle report
+
+    //this sem will be posted when all reports been handled
+    sem_wait(&sem_report);
+
+    //update map, locations, etc
+    //map_update();
+    printf("update map...\n");
+  }
 }
+
+/*
+  notes
+
+  - mosquittion seems has 2, standard mosquito and rsmb (really simple mqtt broker)
+  - launch rsmb: ./broker_mqtts config.conf
+        CWNAN0300I MQTT-S protocol starting, listening on port 1885
+        CWNAN0014I MQTT protocol starting, listening on port 1886
+
+        1885: beetles (RIOT) connect to
+        1886: center (using standard mosquitto API) connect to
+
+        These 2 ports can be talked each other! 
+        see the borker_mqtt console logs, gertrud <-> MQTT-S, it is the reason?
+      
+*/
