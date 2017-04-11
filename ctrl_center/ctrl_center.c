@@ -4,23 +4,16 @@
  *
 */
 
-#include "../beetle.h"
-
 #include <pthread.h>
 #include <semaphore.h>
+
+#include "../beetle.h"
+#include "mosquitto.h"
 
 sem_t sem_init_req;
 sem_t sem_report;
 struct mosquitto* g_mosq;
 
-struct mosquitto_message{
-	int mid;
-	char *topic;
-	void *payload;
-	int payloadlen;
-	int qos;
-	int retain;
-};
 
 /* -------------------- The MAP --------------------
 
@@ -166,7 +159,7 @@ static void on_connect(struct mosquitto *mosq, void *obj, int result)
 
 static void on_publish(struct mosquitto *mosq, void *userdata, int mid)
 {
-  //printf("2. on_publish is called...\n");
+  printf("2. on_publish is called...\n");
 }
 
 static void on_subscribe(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
@@ -201,7 +194,7 @@ center
 */
 
 #define NUM_OF_BEETLE 10
-#define MOSQ_ERR_SUCCESS 0
+//#define MOSQ_ERR_SUCCESS 0
 
 
 int cnt_init_req;
@@ -210,22 +203,32 @@ int cnt_report;
 void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_message* msg)
 {
   int i;
+  int ret=1234;
 
-  beetle_init_req* p_data = (beetle_init_req *)msg->payload;
+  char* rx_topic = (char *)msg->topic;
+  printf("[center] receive msg (%s)\n", rx_topic);
 
-  printf("center: I got this: %d\n", p_data->id);
-
-/*
   //beetle init request
-  if (strncmp(topic, BEETLE_PUB_INIT_REQ_, sizeof(BEETLE_PUB_INIT_REQ_)) == MOSQ_ERR_SUCCESS)
+  if ((ret=strncmp(rx_topic, BEETLE_PUB_INIT_REQ_, sizeof(BEETLE_PUB_INIT_REQ_)-1)) == 0)
   {
-    mosquitto_publish(g_mosq, NULL, );
+    beetle_init_req* data = (beetle_init_req *)msg->payload;
+    char topic[32] = CENTER_PUB_INIT_RSP_;
+    strcat(topic, "0001");
+    printf("topic to go: %s\n", topic);
+    mosquitto_publish(g_mosq, NULL, topic, 32, topic, 0, NULL);
 
+    /*
     cnt_init_req++;
     if (cnt_init_req == NUM_OF_BEETLE)
       sem_post(&sem_init_req);
+    */
+  }
+  else
+  {
+    printf("ret=%d,%s,%s,%d\n",ret,rx_topic,BEETLE_PUB_INIT_REQ_,sizeof(BEETLE_PUB_INIT_REQ_)-1);
   }
 
+/*
   if (topic == "beetle/report_ID")
   {
     //publish();
@@ -240,7 +243,7 @@ void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_messag
 
 
 
-int mqtt_listener()
+void* mqtt_listener()
 {
 
   mosquitto_lib_init();
@@ -269,7 +272,7 @@ int mqtt_listener()
   mosquitto_lib_cleanup();
 
   printf("[master] is exiting.\n");
-  return 0;
+  return NULL;
 
 ERROR:
   printf("[master] Error occured, exiting...\n");
@@ -279,7 +282,7 @@ ERROR:
      g_mosq = 0;
      mosquitto_lib_cleanup();
   }
-  return -1;
+  return NULL;
 }
 
 

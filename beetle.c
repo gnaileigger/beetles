@@ -234,7 +234,7 @@ int beetle_start(int argc, char** argv)
 
   //mqtt
   mqtt_connect();
-  mqtt_subscribe(TOPIC_TEST);
+  mqtt_subscribe("center/init_rsp_0001");
 
   beetle_init_req req;
   req.id = 1;

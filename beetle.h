@@ -36,8 +36,8 @@
 #define BEETLE_PUB_REPORT_ "eetle/report_"
 
 #define CENTER_SUB "beetle/*"
-#define CENTER_PUB_INIT_RSP "center/init_rsp_"
-#define CENTER_PUB_SENSOR "center/sensor_"
+#define CENTER_PUB_INIT_RSP_ "center/init_rsp_"
+#define CENTER_PUB_SENSOR_ "center/sensor_"
 
 // structures
 

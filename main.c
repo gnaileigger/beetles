@@ -58,6 +58,8 @@ int main(void)
     gnrc_netreg_register(GNRC_NETTYPE_UNDEF, &dump);
 #endif
 
+    (void) puts("ifconfig 6 add fec0:affe::99");
+    (void) puts("power_on");
     (void) puts("beetle running...");
     //beetle_start(0,0);
 
