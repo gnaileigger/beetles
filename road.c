@@ -25,6 +25,7 @@
 #define LANE_SAFE_INTERVAL 1
 #define LANE_SAFE_DISTANCE 2
 
+#if 0
 
 /* Random a swing: left, right or none
     Prevent hitting the sides: if the interval to sides are 1 (LANE_SAFE_INTERVAL), 
@@ -118,3 +119,5 @@ int road_init()
 
 }
 */
+
+#endif

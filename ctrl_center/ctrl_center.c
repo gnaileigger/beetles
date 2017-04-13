@@ -16,24 +16,29 @@ struct mosquitto* g_mosq;
 
 
 /* -------------------- The MAP --------------------
-
-                                         y pos:
-y=200                                     CC                                    (300,200)
-                                               v^
-                                               v^
-                                               v^
-                                               v^
-                                               v^
+y pos:
+y=200                  CC               (300,200)
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
 y=101  C<<<<<<<<<<<<<<<CC<<<<<<<<<<<<<<<<<<C
 y=100  C>>>>>>>>>>>>>>>CC>>>>>>>>>>>>>>>>>>C   ZS Road
-                                               v^
-                                               v^
-                                               v^ JF Road
-                                               v^
-                                               v^
-                                               v^
-         (0,0)                               CC               C=checkpoint
-                                       x=150,151                                      x=300                                         
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^ JF Road
+(0,0)                  CC             
+                   x=150,151             x=300                                         
+                                        C=checkpoint
 */
 
 //ZS road
@@ -111,41 +116,50 @@ void map_init(void)
     printf("ERRRRRRRRRRRROR! g_maps overflow %d\n", idx);
 }
 
-
-
-checkpoint cc_checkpoints[NUM_CHKPTS];
-/*
-                                         y pos:
-y=200                                     CC                                    (300,200)
-                                               v^
-                                               v^
-                                               v^
-                                               v^
-                                               v^
+/* -------------------- The MAP --------------------
+y pos:
+y=200                  CC               (300,200)
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
 y=101  C<<<<<<<<<<<<<<<CC<<<<<<<<<<<<<<<<<<C
 y=100  C>>>>>>>>>>>>>>>CC>>>>>>>>>>>>>>>>>>C   ZS Road
-                                               v^
-                                               v^
-                                               v^ JF Road
-                                               v^
-                                               v^
-                                               v^
-         (0,0)                               CC               C=checkpoint
-                                       x=150,151                                      x=300                                         
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^ JF Road
+    (0,0)              CC             
+      x=0          x=150,151             x=300                                         
+                                        C=checkpoint
 */
-void chkpt_init(void)
-{
+checkpoint g_checkpoints[] = {
+  //valid? pos  dir_cnt  dir0      dir1
+    {0, {0, 100},   1, {{1, 0},   {0, 0}}},
+    {0, {0, 101},   1, {{0, -1},  {0, 0}}},
 
-/*
-  cc_checkpoints[NUM_CHKPTS] = {
-  //v     pos    cnt   d0    d1
-    (0, (0, 100), 1, ((1, 0), (0, 0))),
-    (0, (0, 101), 1, ((0, -1), (0, 0))),
-    (0, (150, 100), 2, ((1, 0), (0, -1))),
-    (0, (150, 101), 2, ((0, -1), (-1, 0))),
+    {0, {150, 0},   1, {{1, 0},  {0, 0}}},
+    {0, {150, 100}, 2, {{1, 0},   {0, -1}}},
+    {0, {150, 101}, 2, {{0, -1},  {-1, 0}}},
+    {0, {150, 200}, 1, {{0, -1},  {0, 0}}},
+
+    {0, {151, 0},   1, {{0, 1},  {0, 0}}},
+    {0, {151, 100}, 2, {{0, 1},   {1, 0}}},
+    {0, {151, 101}, 2, {{0, 1},  {-1, 0}}},
+    {0, {151, 200}, 1, {{-1, 0},  {0, 0}}},
+
+    {0, {300, 100}, 1, {{0, 1},   {0, 0}}},
+    {0, {300, 101}, 1, {{-1, 0},  {0, 0}}},
   };
-*/
-}
+
 
 extern int mosquitto_lib_init();
 struct mosquitto* client;
@@ -153,13 +167,15 @@ struct mosquitto* client;
 
 static void on_connect(struct mosquitto *mosq, void *obj, int result)
 {
-  if (mosquitto_subscribe(g_mosq, NULL, "beetle/init_req_0001", 0) != 0) 
+  if (mosquitto_subscribe(g_mosq, NULL, "beetle/+", 0) != 0) 
     printf("error mosquitto_subscribe\n");
+
+  //mosquitto_subscribe(g_mosq, NULL, "beetle/report_0001", 0);
 }
 
 static void on_publish(struct mosquitto *mosq, void *userdata, int mid)
 {
-  printf("2. on_publish is called...\n");
+  //printf("[center] publish --->\n");
 }
 
 static void on_subscribe(struct mosquitto *mosq, void *obj, int mid, int qos_count, const int *granted_qos)
@@ -193,12 +209,12 @@ center
   pub: center/init_rsp_{all}, center/sensor_{all}
 */
 
-#define NUM_OF_BEETLE 10
+#define NUM_OF_BEETLE 1
 //#define MOSQ_ERR_SUCCESS 0
 
 
-int cnt_init_req;
-int cnt_report;
+int cnt_init_req = 0;
+int cnt_report = 0;
 
 void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_message* msg)
 {
@@ -211,37 +227,60 @@ void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_messag
   //beetle init request
   if ((ret=strncmp(rx_topic, BEETLE_PUB_INIT_REQ_, sizeof(BEETLE_PUB_INIT_REQ_)-1)) == 0)
   {
-    beetle_init_req* data = (beetle_init_req *)msg->payload;
-    char topic[32] = CENTER_PUB_INIT_RSP_;
-    strcat(topic, "0001");
-    printf("topic to go: %s\n", topic);
-    mosquitto_publish(g_mosq, NULL, topic, 32, topic, 0, NULL);
+    //in topic: BEETLE_PUB_INIT_REQ_nnnn ==> out topic: CENTER_PUB_INIT_RSP_nnnn
+    printf("%s\n", rx_topic);
+    int n_pos = sizeof(BEETLE_PUB_INIT_REQ_)-1;
+    printf("%d\n", n_pos);
+    char *nnnn = rx_topic + n_pos;
+    printf("%s\n", nnnn);
 
-    /*
+    char topic[32];
+    sprintf(topic, "%s%s", CENTER_PUB_INIT_RSP_, nnnn);
+    //printf("topic to go: %s\n", topic);
+
+    beetle b;
+    b.id = atoi(nnnn);
+    b.pos.x = 10;
+    b.pos.y = 100;
+    b.dir.x = 1;
+    b.dir.y = 0;
+    b.speed = 1;
+    b.color = 0x00ff0000;
+    b.sideward = 0;
+
+    center_init_rsp rsp;
+    rsp.beetle_data = b;
+
+    mosquitto_publish(g_mosq, NULL, topic, sizeof(rsp), &rsp, 0, NULL);
+
+    //if pub all rsp to all beetles, let main thread continue
     cnt_init_req++;
     if (cnt_init_req == NUM_OF_BEETLE)
+    {
       sem_post(&sem_init_req);
-    */
+      cnt_init_req = 0;
+    }
   }
-  else
+  else if ((ret=strncmp(rx_topic, BEETLE_PUB_REPORT_, 
+    sizeof(BEETLE_PUB_REPORT_)-1)) == 0) //beetle report
   {
-    printf("ret=%d,%s,%s,%d\n",ret,rx_topic,BEETLE_PUB_INIT_REQ_,sizeof(BEETLE_PUB_INIT_REQ_)-1);
-  }
-
-/*
-  if (topic == "beetle/report_ID")
-  {
-    //publish();
+    position pos;
+    pos = ((beetle_report *)(msg->payload))->pos;
+    //printf("Got position (%d,%d)\n",pos.x, pos.y);
 
     cnt_report++;
     if (cnt_report == NUM_OF_BEETLE)
+    {
       sem_post(&sem_report);
-  }  
-*/
-
+      cnt_report = 0;
+    }
+  }
+  else
+  {
+    printf("ret=%d,%s,%s,%d\n",
+      ret,rx_topic,BEETLE_PUB_INIT_REQ_,sizeof(BEETLE_PUB_INIT_REQ_)-1);
+  }
 }
-
-
 
 void* mqtt_listener()
 {
@@ -285,7 +324,6 @@ ERROR:
   return NULL;
 }
 
-
 int main(int argc, void* argv)
 {
   int bcnt = NUM_OF_BEETLE;
@@ -297,7 +335,6 @@ int main(int argc, void* argv)
   sem_init(&sem_report, 0, 0);
 
   map_init();
-  chkpt_init();
   
   //thread to receive mqtt msg
   pthread_t mqtt_thread;
@@ -310,12 +347,14 @@ int main(int argc, void* argv)
   {
     usleep(1000*1000); //1s
 
-    // simulate sensor data and send to eacho beetle
-    for(i = 0; i < NUM_OF_BEETLE; i++)
+    // simulate sensor data and send to each beetle
+    for(i = 1; i <= NUM_OF_BEETLE; i++)
     {
       sprintf(topic, "center/sensor_%04d", i);
-      printf("topic: %s", topic);
-      //mosquitto_publish(g_mosq, NULL, topic, 16, "helloworld", 0, NULL);
+      //printf("topic: %s\n", topic);
+      center_sensor cs;
+      cs.distance = 7;
+      mosquitto_publish(g_mosq, NULL, topic, sizeof(center_sensor), &cs, 0, NULL);
     }
 
     //@beetle:

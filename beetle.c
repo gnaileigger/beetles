@@ -30,91 +30,44 @@
 #define BEETLE_SUB_TOPIC "center/*"
 #define BEETLE_PUB_TOPIC_INITREQ "beetle/initreq"
 
-//locals
+//var
 
 static char stack[THREAD_STACKSIZE_DEFAULT];
 static msg_t queue[8];
 static emcute_sub_t subscriptions[NUMOFSUBS];
 static char topics[NUMOFSUBS][TOPIC_MAXLEN];
 
-static checkpoint checkpoints[NUM_CHKPTS];
+static sema_t sem_init;
+static sema_t sem_sensor;
 
-//globals
+static beetle self_beetle;
 
-sema_t sem_mqtt;
+static uint g_sensor_distance;
+
+static checkpoint g_checkpoints[] = {
+  //valid? pos  dir_cnt  dir0      dir1
+    {0, {0, 100},   1, {{1, 0},   {0, 0}}},
+    {0, {0, 101},   1, {{0, -1},  {0, 0}}},
+
+    {0, {150, 0},   1, {{1, 0},  {0, 0}}},
+    {0, {150, 100}, 2, {{1, 0},   {0, -1}}},
+    {0, {150, 101}, 2, {{0, -1},  {-1, 0}}},
+    {0, {150, 200}, 1, {{0, -1},  {0, 0}}},
+
+    {0, {151, 0},   1, {{0, 1},  {0, 0}}},
+    {0, {151, 100}, 2, {{0, 1},   {1, 0}}},
+    {0, {151, 101}, 2, {{0, 1},  {-1, 0}}},
+    {0, {151, 200}, 1, {{-1, 0},  {0, 0}}},
+
+    {0, {300, 100}, 1, {{0, 1},   {0, 0}}},
+    {0, {300, 101}, 1, {{-1, 0},  {0, 0}}},
+  };
 
 /*
  * functions
  */
 
-static uint beetle_init_request(beetle* b)
-{
-  //pos
-  //dir
-  //speed
-  //checkpoints
-  ((void)b);
-  //mqtt request
-
-  //mqtt response
-  return 0;
-
-}
-
-static int beetle_compare_position(position a, position b)
-{
-  if (a.x == b.x && a.y == b.y )
-    return 0;
-  else
-    return 1;
-}
-
-// update the dir if it is in a checkpoint
-static void beetle_dir_update(beetle* b)
-{
-  checkpoint cp;
-  int i = 0;
-  //if position is a checkpoint, update the dir
-  for (i = 0; i < NUM_CHKPTS; i++)
-  {
-    cp = checkpoints[i];
-    if (beetle_compare_position(b->pos, cp.pos) == 0)
-    {
-      uint rn = gen_rand() % (cp.dir_cnt); //random select a dir in this checkpoint
-      b->pos.x = cp.possible_dirs[rn].x;
-      b->pos.y = cp.possible_dirs[rn].y;
-      break;
-    }
-  }
-}
-
-static void beetle_move(beetle* b)
-{
-  b->pos.x += b->dir.x;
-  b->pos.y += b->dir.y;
-
-  beetle_dir_update(b);
-}
-
-static uint g_sensor_distance;
-
-static uint beetle_sensor_update(void)
-{
-  //semTake(sem_mqtt);
-  return g_sensor_distance;
-  
-}
-
-static void beetle_report(beetle b)
-{
-  //position update to ctrl_center
-  //mqtt send: pos(x,y), id
-  (void)b;
-}
-
-/* 
- * MQTT APIs
- */
+// MQTT APIs //
 
 static void *emcute_thread(void *arg)
 {
@@ -143,19 +96,30 @@ static void mqtt_connect(void)
 
 static void mqtt_on_message(const emcute_topic_t *topic, void *data, size_t len)
 {
-  char *in = (char *)data;
+  int ret;
+  printf("[beetle] receive topic (%s)\n", topic->name);
 
-  printf("### got publication for topic '%s' [%i] ###\n",
-         topic->name, (int)topic->id);
-  for (size_t i = 0; i < len; i++) {
-      printf("%c", in[i]);
+  ((void)len);
+
+  //receive init_rsp
+  if ((ret=strncmp(topic->name, BEETLE_SUB_INIT_RSP_, 
+    sizeof(BEETLE_SUB_INIT_RSP_)-1)) == 0)
+  {
+    self_beetle = ((center_init_rsp *)data)->beetle_data;
+    sema_post(&sem_init);
   }
-  puts("sleep 1s...");
-  sleep(1);
-  sema_post(&sem_mqtt);
+  else if ((ret=strncmp(topic->name, BEETLE_SUB_SENSOR_, 
+    sizeof(BEETLE_SUB_SENSOR_)-1)) == 0)
+  {
+    g_sensor_distance = ((center_sensor *)data)->distance;
+    sema_post(&sem_sensor);
+  }
+  else
+  {
+    puts("else!");
+  }
 
 }
-
 
 //sub hello/world
 static void mqtt_subscribe(char* topic)
@@ -190,10 +154,64 @@ void mqtt_publish(char* topic, void* data, uint len)
   printf("Published %i bytes to topic '%s [%i]'\n",
             (int)len, t.name, t.id);
 }
+static int beetle_compare_position(position a, position b)
+{
+  if (a.x == b.x && a.y == b.y )
+    return 0;
+  else
+    return 1;
+}
+
+// update the dir if it is in a checkpoint
+static void beetle_dir_update(void)
+{
+  checkpoint cp;
+  int cp_cnt = sizeof(g_checkpoints)/sizeof(checkpoint);
+  int i = 0;
+  //if position is a checkpoint, update the dir
+  for (i = 0; i < cp_cnt; i++)
+  {
+    cp = g_checkpoints[i];
+    if (beetle_compare_position(self_beetle.pos, cp.pos) == 0)
+    {
+      uint rn = gen_rand() % (cp.dir_cnt); //random select a dir in this checkpoint
+      self_beetle.pos.x = cp.possible_dirs[rn].x;
+      self_beetle.pos.y = cp.possible_dirs[rn].y;
+      break;
+    }
+  }
+}
+
+static void beetle_move(void)
+{
+  self_beetle.pos.x += self_beetle.dir.x;
+  self_beetle.pos.y += self_beetle.dir.y;
+
+  beetle_dir_update();
+}
+
+
+static uint beetle_sensor_update(void)
+{
+  sema_wait(&sem_sensor);
+  return g_sensor_distance;
+  
+}
+
+static void beetle_report_send(void)
+{
+  //position update to ctrl_center
+  //mqtt send: pos(x,y), id
+  char topic[32];
+  sprintf(topic, "%s%s", BEETLE_PUB_REPORT_, "0001");
+  beetle_report br;
+  br.pos = self_beetle.pos;
+  mqtt_publish(topic, &br, sizeof(beetle_report));
+}
+
 
 int beetle_start(int argc, char** argv)
 {
-  beetle b;
   uint distance;
 
   ((void)argc);
@@ -230,33 +248,29 @@ int beetle_start(int argc, char** argv)
                 emcute_thread, NULL, "emcute");
 
   /* semaphore */
-  sema_create(&sem_mqtt, 0);
+  sema_create(&sem_init, 0);
 
   //mqtt
   mqtt_connect();
   mqtt_subscribe("center/init_rsp_0001");
+  mqtt_subscribe("center/sensor_0001");
 
   beetle_init_req req;
   req.id = 1;
   mqtt_publish("beetle/init_req_0001", &req, sizeof(beetle_init_req));
 
-  if(beetle_init_request(&b) != 0)
-  {
-    printf("init error\n");
-    return -1;
-  }
+  sema_wait(&sem_init);
+  puts("Init response received!");  
 
   //main loop
   while(1){
-    sema_wait(&sem_mqtt);
-    puts("sem took!");
     distance = beetle_sensor_update();
 
     if (distance > SAFE_DISTANCE){
-      beetle_move(&b);
+      beetle_move();
     }
 
-    beetle_report(b);
+    beetle_report_send();
 
   } //while(1)
   

@@ -12,11 +12,12 @@
 #include <unistd.h>
 
 #define SAFE_DISTANCE 3
+
 #define SPEED_LOW 1
 #define SPEED_MEDIUM 2
 
 //check points settings
-#define NUM_CHKPTS 20
+//#define NUM_CHKPTS 20
 #define NUM_MAX_POSSIBLE_DIR 2
 
 /*
@@ -33,7 +34,7 @@
 #define BEETLE_SUB_INIT_RSP_ "center/init_rsp_"
 #define BEETLE_SUB_SENSOR_ "center/sensor_"
 #define BEETLE_PUB_INIT_REQ_ "beetle/init_req_"
-#define BEETLE_PUB_REPORT_ "eetle/report_"
+#define BEETLE_PUB_REPORT_ "beetle/report_"
 
 #define CENTER_SUB "beetle/*"
 #define CENTER_PUB_INIT_RSP_ "center/init_rsp_"
@@ -67,7 +68,7 @@ typedef struct _beetle {
   position pos;
   direction dir;
   //extensions
-  speed spd;
+  uint speed;
   uint color;
   int sideward;
 } beetle;
@@ -84,13 +85,22 @@ typedef struct _beetle_init_req {
 }beetle_init_req;
 
 typedef struct _center_init_rsp {
-  int id;
+  beetle beetle_data;
+  //checkpoint checkpoints[NUM_CHKPTS];
 }center_init_rsp;
 
+typedef struct _center_sensor {
+  uint distance;
+}center_sensor;
+
+typedef struct _beetle_report {
+  position pos;
+}beetle_report;
 
 //externs
 
 extern int beetle_start(int argc, char** argv);
 extern int beetle_stop(int argc, char** argv);
+extern int atoi(const char *nptr);
 
 #endif //BEETLE_H
