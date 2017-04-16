@@ -10,55 +10,32 @@
 #include "../beetle.h"
 #include "mosquitto.h"
 
+#define DELAY_MS 100 //delay in ms
+
 sem_t sem_init_req;
 sem_t sem_report;
 struct mosquitto* g_mosq;
 
-
-/* -------------------- The MAP --------------------
-y pos:
-y=200                  CC               (300,200)
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-y=101  C<<<<<<<<<<<<<<<CC<<<<<<<<<<<<<<<<<<C
-y=100  C>>>>>>>>>>>>>>>CC>>>>>>>>>>>>>>>>>>C   ZS Road
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^ JF Road
-(0,0)                  CC             
-                   x=150,151             x=300                                         
-                                        C=checkpoint
-*/
-
-//ZS road
-#define ZS_ROAD_LEN 300
-#define ZS_ROAD_EAST_Y 100
-#define ZS_ROAD_WEST_Y 101
-//JF road
-#define JF_ROAD_LEN 200
-#define JF_ROAD_SOUTH_X 150
-#define JF_ROAD_NORTH_X 151
-
-#define NUM_MAX_POS ((ZS_ROAD_LEN + JF_ROAD_LEN) * 2)
-
-typedef struct _map_position{
-  position p;
-  uint chkpt;
-  uint used; //for init, whether this pos can be assigned
-}map_position;
-
 map_position g_maps[NUM_MAX_POS];
+
+checkpoint g_checkpoints[] = {
+  //valid?      pos                     dir_cnt  dir0      dir1
+    {0, {0, ZS_ROAD_EAST_Y},                1, {DIR_RIGHT,  DIR_NULL}},
+    {0, {0, ZS_ROAD_WEST_Y},                1, {DIR_DOWN,   DIR_NULL}},
+
+    {0, {JF_ROAD_SOUTH_X, 0},               1, {DIR_RIGHT,  DIR_NULL}},
+    {0, {JF_ROAD_SOUTH_X, ZS_ROAD_EAST_Y},  2, {DIR_RIGHT,  DIR_DOWN}},
+    {0, {JF_ROAD_SOUTH_X, ZS_ROAD_WEST_Y},  2, {DIR_DOWN,   DIR_LEFT}},
+    {0, {JF_ROAD_SOUTH_X, JF_ROAD_LEN},     1, {DIR_DOWN,   DIR_NULL}},
+
+    {0, {JF_ROAD_NORTH_X, 0},               1, {DIR_UP,     DIR_NULL}},
+    {0, {JF_ROAD_NORTH_X, ZS_ROAD_EAST_Y},  2, {DIR_UP,     DIR_RIGHT}},
+    {0, {JF_ROAD_NORTH_X, ZS_ROAD_WEST_Y},  2, {DIR_UP,     DIR_LEFT}},
+    {0, {JF_ROAD_NORTH_X, JF_ROAD_LEN},     1, {DIR_LEFT,   DIR_NULL}},
+
+    {0, {ZS_ROAD_LEN, ZS_ROAD_EAST_Y},      1, {DIR_UP,     DIR_NULL}},
+    {0, {ZS_ROAD_LEN, ZS_ROAD_WEST_Y},      1, {DIR_LEFT,   DIR_NULL}},
+  };
 
 void map_init(void)
 {
@@ -115,50 +92,6 @@ void map_init(void)
   if (idx >= NUM_MAX_POS)
     printf("ERRRRRRRRRRRROR! g_maps overflow %d\n", idx);
 }
-
-/* -------------------- The MAP --------------------
-y pos:
-y=200                  CC               (300,200)
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-y=101  C<<<<<<<<<<<<<<<CC<<<<<<<<<<<<<<<<<<C
-y=100  C>>>>>>>>>>>>>>>CC>>>>>>>>>>>>>>>>>>C   ZS Road
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^
-                       v^ JF Road
-    (0,0)              CC             
-      x=0          x=150,151             x=300                                         
-                                        C=checkpoint
-*/
-checkpoint g_checkpoints[] = {
-  //valid? pos  dir_cnt  dir0      dir1
-    {0, {0, 100},   1, {{1, 0},   {0, 0}}},
-    {0, {0, 101},   1, {{0, -1},  {0, 0}}},
-
-    {0, {150, 0},   1, {{1, 0},  {0, 0}}},
-    {0, {150, 100}, 2, {{1, 0},   {0, -1}}},
-    {0, {150, 101}, 2, {{0, -1},  {-1, 0}}},
-    {0, {150, 200}, 1, {{0, -1},  {0, 0}}},
-
-    {0, {151, 0},   1, {{0, 1},  {0, 0}}},
-    {0, {151, 100}, 2, {{0, 1},   {1, 0}}},
-    {0, {151, 101}, 2, {{0, 1},  {-1, 0}}},
-    {0, {151, 200}, 1, {{-1, 0},  {0, 0}}},
-
-    {0, {300, 100}, 1, {{0, 1},   {0, 0}}},
-    {0, {300, 101}, 1, {{-1, 0},  {0, 0}}},
-  };
 
 
 extern int mosquitto_lib_init();
@@ -240,8 +173,8 @@ void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_messag
 
     beetle b;
     b.id = atoi(nnnn);
-    b.pos.x = 10;
-    b.pos.y = 100;
+    b.pos.x = JF_ROAD_SOUTH_X-10;
+    b.pos.y = ZS_ROAD_EAST_Y;
     b.dir.x = 1;
     b.dir.y = 0;
     b.speed = 1;
@@ -345,13 +278,13 @@ int main(int argc, void* argv)
 
   while(1)
   {
-    usleep(1000*1000); //1s
+    usleep(1000*DELAY_MS); //1s
 
     // simulate sensor data and send to each beetle
     for(i = 1; i <= NUM_OF_BEETLE; i++)
     {
       sprintf(topic, "center/sensor_%04d", i);
-      //printf("topic: %s\n", topic);
+      //printf("[center] publish topic: %s\n", topic);
       center_sensor cs;
       cs.distance = 7;
       mosquitto_publish(g_mosq, NULL, topic, sizeof(center_sensor), &cs, 0, NULL);

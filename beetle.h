@@ -103,4 +103,63 @@ extern int beetle_start(int argc, char** argv);
 extern int beetle_stop(int argc, char** argv);
 extern int atoi(const char *nptr);
 
+/*
+   Maps and Checkpoints
+
+*/
+
+/* -------------------- The MAP --------------------
+y pos:
+y=Ymax                 CC               (Xmax,Ymax)
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+Ymax                   v^
+/2+1   C<<<<<<<<<<<<<<<CC<<<<<<<<<<<<<<<<<<C             Y:ZS_ROAD_WEST_Y
+Ymax/2 C>>>>>>>>>>>>>>>CC>>>>>>>>>>>>>>>>>>C   ZS Road   Y:ZS_ROAD_EAST_Y
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^
+                       v^ JF Road
+y=0                    CC             
+    x=0                                  x=Xmas 
+               x=Xmas:JF_ROAD_SOUTH_X
+                        Xmas/2+1:JF_ROAD_NORTH_X  
+                                                                                      
+                  C=checkpoint
+*/
+
+//ZS road
+#define ZS_ROAD_LEN 100
+#define ZS_ROAD_EAST_Y (JF_ROAD_LEN/2)
+#define ZS_ROAD_WEST_Y (JF_ROAD_LEN/2 + 1)
+//JF road
+#define JF_ROAD_LEN 60
+#define JF_ROAD_SOUTH_X (ZS_ROAD_LEN/2)
+#define JF_ROAD_NORTH_X (ZS_ROAD_LEN/2 + 1)
+
+#define NUM_MAX_POS ((ZS_ROAD_LEN + JF_ROAD_LEN) * 2)
+
+typedef struct _map_position{
+  position p;
+  uint chkpt;
+  uint used; //for init, whether this pos can be assigned
+}map_position;
+
+#define DIR_UP {0,1}
+#define DIR_DOWN {0,-1}
+#define DIR_LEFT {-1,0}
+#define DIR_RIGHT {1,0}
+#define DIR_NULL {0,0}
+
+
+
 #endif //BEETLE_H

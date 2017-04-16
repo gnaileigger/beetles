@@ -13,6 +13,7 @@
 #include "msg.h"
 #include "net/emcute.h"
 #include "net/ipv6/addr.h"
+#include "random.h"
 
 #include "beetle.h"
 #include "utils.h"
@@ -44,23 +45,23 @@ static beetle self_beetle;
 
 static uint g_sensor_distance;
 
-static checkpoint g_checkpoints[] = {
+checkpoint g_checkpoints[] = {
   //valid? pos  dir_cnt  dir0      dir1
-    {0, {0, 100},   1, {{1, 0},   {0, 0}}},
-    {0, {0, 101},   1, {{0, -1},  {0, 0}}},
+    {0, {0, ZS_ROAD_EAST_Y},   1, {DIR_RIGHT, DIR_NULL}},
+    {0, {0, ZS_ROAD_WEST_Y},   1, {DIR_DOWN, DIR_NULL}},
 
-    {0, {150, 0},   1, {{1, 0},  {0, 0}}},
-    {0, {150, 100}, 2, {{1, 0},   {0, -1}}},
-    {0, {150, 101}, 2, {{0, -1},  {-1, 0}}},
-    {0, {150, 200}, 1, {{0, -1},  {0, 0}}},
+    {0, {JF_ROAD_SOUTH_X, 0},   1, {DIR_RIGHT, DIR_NULL}},
+    {0, {JF_ROAD_SOUTH_X, ZS_ROAD_EAST_Y}, 2, {DIR_RIGHT, DIR_DOWN}},
+    {0, {JF_ROAD_SOUTH_X, ZS_ROAD_WEST_Y}, 2, {DIR_DOWN,DIR_LEFT}},
+    {0, {JF_ROAD_SOUTH_X, JF_ROAD_LEN}, 1, {DIR_DOWN, DIR_NULL}},
 
-    {0, {151, 0},   1, {{0, 1},  {0, 0}}},
-    {0, {151, 100}, 2, {{0, 1},   {1, 0}}},
-    {0, {151, 101}, 2, {{0, 1},  {-1, 0}}},
-    {0, {151, 200}, 1, {{-1, 0},  {0, 0}}},
+    {0, {JF_ROAD_NORTH_X, 0},   1, {DIR_UP, DIR_NULL}},
+    {0, {JF_ROAD_NORTH_X, ZS_ROAD_EAST_Y}, 2, {DIR_UP, DIR_RIGHT}},
+    {0, {JF_ROAD_NORTH_X, ZS_ROAD_WEST_Y}, 2, {DIR_UP, DIR_LEFT}},
+    {0, {JF_ROAD_NORTH_X, JF_ROAD_LEN}, 1, {DIR_LEFT, DIR_NULL}},
 
-    {0, {300, 100}, 1, {{0, 1},   {0, 0}}},
-    {0, {300, 101}, 1, {{-1, 0},  {0, 0}}},
+    {0, {ZS_ROAD_LEN, ZS_ROAD_EAST_Y}, 1, {DIR_UP, DIR_NULL}},
+    {0, {ZS_ROAD_LEN, ZS_ROAD_WEST_Y}, 1, {DIR_LEFT, DIR_NULL}},
   };
 
 /*
@@ -97,7 +98,7 @@ static void mqtt_connect(void)
 static void mqtt_on_message(const emcute_topic_t *topic, void *data, size_t len)
 {
   int ret;
-  printf("[beetle] receive topic (%s)\n", topic->name);
+  //printf("[beetle] receive topic (%s)\n", topic->name);
 
   ((void)len);
 
@@ -151,8 +152,7 @@ void mqtt_publish(char* topic, void* data, uint len)
   t.name = topic;
   emcute_reg(&t);
   emcute_pub(&t, data, len, EMCUTE_QOS_0);
-  printf("Published %i bytes to topic '%s [%i]'\n",
-            (int)len, t.name, t.id);
+  //printf("Published %i bytes to topic '%s [%i]'\n", (int)len, t.name, t.id);
 }
 static int beetle_compare_position(position a, position b)
 {
@@ -174,9 +174,10 @@ static void beetle_dir_update(void)
     cp = g_checkpoints[i];
     if (beetle_compare_position(self_beetle.pos, cp.pos) == 0)
     {
-      uint rn = gen_rand() % (cp.dir_cnt); //random select a dir in this checkpoint
-      self_beetle.pos.x = cp.possible_dirs[rn].x;
-      self_beetle.pos.y = cp.possible_dirs[rn].y;
+      uint rn = random_uint32() % (cp.dir_cnt); //random select a dir in this checkpoint
+      self_beetle.dir.x = cp.possible_dirs[rn].x;
+      self_beetle.dir.y = cp.possible_dirs[rn].y;
+      //printf("checkpoint! dir=(%d,%d)\n", self_beetle.dir.x, self_beetle.dir.y);
       break;
     }
   }
@@ -184,8 +185,10 @@ static void beetle_dir_update(void)
 
 static void beetle_move(void)
 {
+  //printf("before move: (%d,%d), dir(%d,%d)\n", self_beetle.pos.x,self_beetle.pos.y,self_beetle.dir.x,self_beetle.dir.y);
   self_beetle.pos.x += self_beetle.dir.x;
   self_beetle.pos.y += self_beetle.dir.y;
+  printf("[Beetle 0001] (%03d, %03d)\n", self_beetle.pos.x, self_beetle.pos.y);
 
   beetle_dir_update();
 }
@@ -208,7 +211,6 @@ static void beetle_report_send(void)
   br.pos = self_beetle.pos;
   mqtt_publish(topic, &br, sizeof(beetle_report));
 }
-
 
 int beetle_start(int argc, char** argv)
 {
@@ -260,7 +262,7 @@ int beetle_start(int argc, char** argv)
   mqtt_publish("beetle/init_req_0001", &req, sizeof(beetle_init_req));
 
   sema_wait(&sem_init);
-  puts("Init response received!");  
+  //puts("Init response received!");  
 
   //main loop
   while(1){
