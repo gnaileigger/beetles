@@ -5,7 +5,7 @@ TARGETS:=ctrl_center
 
 all : $(TARGETS)
 
-ctrl_center: ctrl_center.o
+ctrl_center: ctrl_center.o map_view.o
 	$(CC) $(LDFLAGS) $^ libmosquitto.so.1 libpthread.so.0 -o $@ $(CLIENT_LDFLAGS)
 
 %.o: %.c ../beetle.h

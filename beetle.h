@@ -110,7 +110,7 @@ extern int atoi(const char *nptr);
 
 /* -------------------- The MAP --------------------
 y pos:
-y=Ymax                 CC               (Xmax,Ymax)
+y=Ymax (JF_ROAD_LEN)   CC               (Xmax,Ymax)
                        v^
                        v^
                        v^
@@ -130,7 +130,7 @@ Ymax/2 C>>>>>>>>>>>>>>>CC>>>>>>>>>>>>>>>>>>C   ZS Road   Y:ZS_ROAD_EAST_Y
                        v^
                        v^ JF Road
 y=0                    CC             
-    x=0                                  x=Xmas 
+    x=0                                  x=Xmas (ZS_ROAD_LEN)
                x=Xmas:JF_ROAD_SOUTH_X
                         Xmas/2+1:JF_ROAD_NORTH_X  
                                                                                       

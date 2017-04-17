@@ -11,13 +11,17 @@
 #include "mosquitto.h"
 
 #define DELAY_MS 100 //delay in ms
+#define MAX_SUPPORT_BEETLES 10
+#define NUM_OF_BEETLE 1
+
+//where to store updated positions from beetles
+position g_udpated_beetle_pos[MAX_SUPPORT_BEETLES]; 
 
 sem_t sem_init_req;
 sem_t sem_report;
 struct mosquitto* g_mosq;
 
 map_position g_maps[NUM_MAX_POS];
-
 checkpoint g_checkpoints[] = {
   //valid?      pos                     dir_cnt  dir0      dir1
     {0, {0, ZS_ROAD_EAST_Y},                1, {DIR_RIGHT,  DIR_NULL}},
@@ -36,6 +40,7 @@ checkpoint g_checkpoints[] = {
     {0, {ZS_ROAD_LEN, ZS_ROAD_EAST_Y},      1, {DIR_UP,     DIR_NULL}},
     {0, {ZS_ROAD_LEN, ZS_ROAD_WEST_Y},      1, {DIR_LEFT,   DIR_NULL}},
   };
+
 
 void map_init(void)
 {
@@ -142,10 +147,6 @@ center
   pub: center/init_rsp_{all}, center/sensor_{all}
 */
 
-#define NUM_OF_BEETLE 1
-//#define MOSQ_ERR_SUCCESS 0
-
-
 int cnt_init_req = 0;
 int cnt_report = 0;
 
@@ -200,6 +201,9 @@ void on_message(struct mosquitto* mosq, void* obj, const struct mosquitto_messag
     position pos;
     pos = ((beetle_report *)(msg->payload))->pos;
     //printf("Got position (%d,%d)\n",pos.x, pos.y);
+    g_udpated_beetle_pos[01] = pos;
+
+    view_update(pos,'1');
 
     cnt_report++;
     if (cnt_report == NUM_OF_BEETLE)
@@ -257,6 +261,11 @@ ERROR:
   return NULL;
 }
 
+void map_update(position* g_udpated_beetle_pos, uint size)
+{
+  
+}
+
 int main(int argc, void* argv)
 {
   int bcnt = NUM_OF_BEETLE;
@@ -264,10 +273,13 @@ int main(int argc, void* argv)
   char topic[32];
   int i;
 
+//for (i=0;i<ZS_ROAD_LEN;i++) printf("%c",'c');
+
   sem_init(&sem_init_req, 0, 0);
   sem_init(&sem_report, 0, 0);
 
   map_init();
+  view_init();
   
   //thread to receive mqtt msg
   pthread_t mqtt_thread;
@@ -298,9 +310,8 @@ int main(int argc, void* argv)
     //this sem will be posted when all reports been handled
     sem_wait(&sem_report);
 
-    //update map, locations, etc
-    //map_update();
-    printf("update map...\n");
+    view_display();
+    view_reset();
   }
 }
 
